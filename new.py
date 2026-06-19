@@ -2,27 +2,32 @@ import streamlit as st
 import pandas as pd
 import pickle
 import numpy as np
+import os
 
-# 1. إعدادات الصفحة
+# إعدادات الصفحة
 st.set_page_config(page_title="SpO2 Medical Dashboard", layout="wide")
 
-# العنوان بتنسيق بسيط ومضمون
 st.title("المنظومة الذكية لتقدير نسبة الأكسجين (SpO2)")
-st.subheader("نسخة السنسور المحسّنة - دقة فائقة بـ 11 ميزة")
+st.info("نسخة السنسور المحسّنة - دقة فائقة بـ 11 ميزة")
 
-# 2. تحميل الموديل المعتمد (تأكدي أن الملف في نفس فولدر الكود)
-@st.cache_resource
-def load_model():
-    with open('reduced_spo2_model.pkl', 'rb') as f:
-        return pickle.load(f)
+# --- كود كشف المسارات (عشان نتأكد الموديل فين بالظبط) ---
+current_dir = os.path.dirname(__file__)
+model_path = os.path.join(current_dir, 'reduced_spo2_model.pkl')
 
-try:
-    model = load_model()
-except Exception as e:
-    st.error("❌ لم يتم العثور على ملف 'reduced_spo2_model.pkl'. تأكدي من رفعه في نفس المجلد.")
+# التحقق من وجود الملف
+if not os.path.exists(model_path):
+    st.error(f"❌ لم يتم العثور على الموديل! المجلد الحالي يحتوي على: {os.listdir(current_dir)}")
     st.stop()
 
-# 3. بناء الواجهة (11 صندوق إدخال فقط)
+# تحميل الموديل
+@st.cache_resource
+def load_model(path):
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+model = load_model(model_path)
+
+# --- واجهة الإدخال (11 ميزة) ---
 col1, col2 = st.columns(2)
 
 with col1:
@@ -41,9 +46,8 @@ with col2:
     site_label = st.selectbox("مكان القياس", ["Fingertip", "Wrist"])
     measurement_site = 0 if site_label == "Fingertip" else 1
 
-# 4. زر التوقع
+# --- زر التوقع ---
 if st.button("🔮 احسب نسبة الأكسجين"):
-    # ترتيب المدخلات بدقة الـ 11 ميزة
     features = np.array([[
         pulse_wave_velocity, peak_to_peak, augmentation_index,
         perfusion_index, pulse_rate, systolic_amplitude, 
@@ -53,5 +57,4 @@ if st.button("🔮 احسب نسبة الأكسجين"):
     prediction = model.predict(features)[0]
     
     # عرض النتيجة
-    st.metric(label="نسبة الأكسجين المتوقعة (SpO2)", value=f"{prediction:.2f}%")
-    st.success("تم حساب التوقع بنجاح!")
+    st.success(f"النتيجة المتوقعة لنسبة الأكسجين (SpO2): {prediction:.2f}%")
